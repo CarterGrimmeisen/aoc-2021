@@ -7,14 +7,17 @@ type Board = Line[]
 
 const parseInput = (rawInput: string): [number[], Board[]] => {
   const lines = rawInput.split("\n")
-  const moves = lines[0].split(",").map((each) => parseInt(each))
+  const moves = lines[0].split(",").map((each) => parseInt(each.trim()))
 
   const boards = chunk(
     lines
       .slice(1)
       .filter((each) => each.trim() !== "")
       .map((each) =>
-        each.split(" ").map<Slot>((each) => [parseInt(each), false]),
+        each
+          .trimStart()
+          .split(/ +/)
+          .map<Slot>((each) => [parseInt(each.trim()), false]),
       ),
     5,
   )
@@ -33,7 +36,7 @@ const checkWin = (board: Board) =>
 const part1 = (rawInput: string) => {
   const [moves, boards] = parseInput(rawInput)
 
-  const [winningBoard] = moves.reduce<[Board | null, Board[]]>(
+  const [tuple] = moves.reduce<[[Board, number] | null, Board[]]>(
     ([winner, boards], move) => {
       if (winner !== null) return [winner, []]
 
@@ -46,22 +49,60 @@ const part1 = (rawInput: string) => {
         return board
       })
 
-      newBoards.forEach((board) => {
-        if (checkWin(board)) return [board, []]
-      })
+      for (const board of newBoards)
+        if (checkWin(board)) return [[board, move], []]
 
       return [winner, newBoards]
     },
     [null, boards],
   )
 
-  // const winningBoard?.flat().filter(each => )
+  const [winningBoard, lastMove] = tuple!
+
+  const unplayed = winningBoard
+    .flat()
+    .filter(([, played]) => !played)
+    .reduce<number>((acc, [num]) => acc + num, 0)
+
+  return unplayed * lastMove
 }
 
 const part2 = (rawInput: string) => {
   const input = parseInput(rawInput)
+  const [moves, boards] = parseInput(rawInput)
 
-  return
+  const [tuple] = moves.reduce<[[Board, number] | null, Board[]]>(
+    ([prevWin, boards], move) => {
+      let newBoards = boards.map((board) => {
+        for (const line of board) {
+          const slot = line.find((val) => val[0] === move)
+          if (slot) slot[1] = true
+        }
+
+        return board
+      })
+
+      let nextWinner: [Board, number] | null = null
+      for (let i = 0; i < newBoards.length; i++) {
+        if (checkWin(newBoards[i])) {
+          nextWinner = [newBoards[i], move]
+          newBoards = [...newBoards.slice(0, i), ...newBoards.slice(i + 1)]
+        }
+      }
+
+      return nextWinner ? [nextWinner, newBoards] : [prevWin, newBoards]
+    },
+    [null, boards],
+  )
+
+  const [lastWinner, lastMove] = tuple!
+
+  const unplayed = lastWinner
+    .flat()
+    .filter(([, played]) => !played)
+    .reduce<number>((acc, [num]) => acc + num, 0)
+
+  return unplayed * lastMove
 }
 
 run({
